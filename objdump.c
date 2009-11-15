@@ -4,6 +4,7 @@
 #include "util.h"
 #include <stdio.h>
 #include <string.h>
+#include <limits.h>
 
 /**
  *  For the specified process pid and object image name, return the address within the process for the start of the image.
@@ -24,9 +25,9 @@
  *  	A true value if the image was found, false for failure.
  *
  */
-int find_image_address(int process, const char* image_name, char image_path[512], intptr_t* image_start)
+int find_image_address(int process, const char* image_name, char image_path[PATH_MAX], intptr_t* image_start)
 {
-	char buf[512];
+	char buf[PATH_MAX];
 
 	*image_start = 0;
 
@@ -41,7 +42,7 @@ int find_image_address(int process, const char* image_name, char image_path[512]
 	while(fgets(buf, sizeof(buf), maps) != NULL)
 	{
 		unsigned long long start;
-		char permissions[512];
+		char permissions[PATH_MAX];
 
 		if(sscanf(buf, "%llx-%*llx %s %*llx %*s %*d %s", &start, permissions, image_path) != 3)
 			continue;
@@ -114,9 +115,9 @@ int find_image_address(int process, const char* image_name, char image_path[512]
  *  	A true value if an image path was found, false for failure.
  *
  */
-int find_image_for_address(int process, void* address, char image_path[512])
+int find_image_for_address(int process, void* address, char image_path[PATH_MAX])
 {
-	char buf[512];
+	char buf[PATH_MAX];
 
 	// Iterate through the memory map of the process, looking for an entry that corresponds to the address.
 	snprintf(buf, sizeof(buf), "/proc/%d/maps", process);
@@ -163,8 +164,8 @@ int find_image_for_address(int process, void* address, char image_path[512])
  */
 void* find_relocation(int process, const char* image_name, const char* func)
 {
-	char buf[512];
-	char image[512];
+	char buf[PATH_MAX];
+	char image[PATH_MAX];
 	intptr_t image_start = 0;
 	intptr_t func_start = 0;
 
@@ -218,8 +219,8 @@ void* find_relocation(int process, const char* image_name, const char* func)
  */
 void* find_function(int process, const char* image_name, const char* func, char** image_path)
 {
-	char buf[512];
-	char image[512];
+	char buf[PATH_MAX];
+	char image[PATH_MAX];
 	intptr_t image_start = 0;
 	intptr_t func_start = 0;
 

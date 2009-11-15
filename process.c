@@ -12,6 +12,7 @@
 #include <signal.h>
 #include <fcntl.h>
 #include <dlfcn.h>
+#include <limits.h>
 #include <sys/wait.h>
 #include <sys/ptrace.h>
 #include <linux/user.h>
@@ -35,7 +36,7 @@
  */
 void process_read(int process, void* buf, size_t count, off_t addr)
 {
-	char name[512];
+	char name[PATH_MAX];
 	snprintf(name, sizeof(name), "/proc/%d/mem", process);
 
 	int fd = open(name, O_RDONLY);

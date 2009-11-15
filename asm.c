@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <unistd.h>
+#include <limits.h>
 #include <sys/mman.h>
 
 /**
@@ -21,7 +22,7 @@
  */
 int parse_objdump_asm(const char* line, Instruction* inst)
 {
-	char buf[512];
+	char buf[PATH_MAX];
 	int i;
 
 	// initial whitespace
@@ -247,7 +248,7 @@ void* interpose64(void* dst, void* address, const char* image_path)
  */
 void* interpose_by_address64(void* dst, void* address)
 {
-	char image_path[512];
+	char image_path[PATH_MAX];
 
 	if(!find_image_for_address(getpid(), address, image_path))
 		return NULL;
