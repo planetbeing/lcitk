@@ -138,6 +138,7 @@ int find_process(const char* user, const char* name)
 
 	// loop through everything in /proc
 	int cur_process;
+	int found = 0;
 	DIR* procfs = opendir("/proc");
 	while(1)
 	{
@@ -162,11 +163,87 @@ int find_process(const char* user, const char* name)
 				continue;
 		}
 
+		// retrieve the path of the executable
 		snprintf(buf, bufsize, "/proc/%d/exe", cur_process);
-		char image_path[PATH_MAX];
-		int image_path_len = realpath(buf, image_path);
+		char image_path_buf[PATH_MAX];
+		char* image_path = realpath(buf, image_path_buf);
+		if(!image_path)
+			continue;
+
+		// get the last component of the path
+		char* last_sep = strrchr(image_path, '/');
+		if(last_sep == NULL)
+			last_sep = image_path;
+		else
+			++last_sep;
+
+		if(strcmp(last_sep,  name) == 0)
+		{
+			found = cur_process;
+			break;
+		}
 	}
 
 	closedir(procfs);
+
+	return found;
+}
+
+/**
+ *  Finds a process based on a string specifier
+ *
+ *  @param[in] specifier
+ *  	The specifier is in the format "( [<user>/]exec_name | pid )". <user> can be specified as '-' to
+ *  	match all users (default behavior for root), otherwise only the current user's processes are searched.
+ *
+ *  @return
+ *  	The pid of the process if found, 0 if not found.
+ *
+ */
+int resolve_process(const char* specifier)
+{
+	int process;
+	char* endptr;
+	process = strtol(specifier, &endptr, 10);
+	if(*endptr == '\0')
+	{
+		char buf[PATH_MAX];
+		snprintf(buf, sizeof(buf), "/proc/%d", process);
+		struct stat file_stat;
+		if(stat(buf, &file_stat) == 0)
+			return process;
+		else
+			return 0;
+	}
+
+	// determine whether a user field exists
+	char* user = NULL;
+	char* exec_name = NULL;
+	char* buffer = strdup(specifier);
+	char* sep = strchr(buffer, '/');
+	if(sep)
+	{
+		// Yes. Separate the components
+		exec_name = sep + 1;
+		user = buffer;
+		*sep = '\0';
+	}
+	else
+	{
+		// No. Use the whole specifier as process name to look for and search all users
+		// when I'm root and just me if I'm not.
+		exec_name = buffer;
+		if(getuid() == 0)
+			user = "-";
+		else
+			user = "";
+	}
+
+	// find the process
+	process = find_process(user, exec_name);
+	
+	free(buffer);
+
+	return process;
 }
 

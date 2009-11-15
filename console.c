@@ -70,7 +70,7 @@ int main(int argc, const char* const argv[])
 
 	printf("Type '#quit' to exit this program.\n\n");
 
-	int process = atoi(argv[1]);
+	int process = resolve_process(argv[1]);
 
 	void* target_malloc = find_libc_function(process, "malloc");
 	void* target_free = find_libc_function(process, "free");

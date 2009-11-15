@@ -32,7 +32,7 @@ int main(int argc, const char* const argv[])
 		exit(0);
 	}
 
-	int pid = atoi(argv[1]);
+	int pid = resolve_process(argv[1]);
 
 	if(strncmp(argv[2], "-i", 2) == 0)
 	{
