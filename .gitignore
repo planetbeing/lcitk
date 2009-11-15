@@ -1,0 +1,5 @@
+*.o
+inject
+console
+interpose.so
+.console_history
