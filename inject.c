@@ -19,8 +19,8 @@
 void usage()
 {
 	printf("Usage:\n");
-	printf("\tinject <pid> -i <.so file>\t\tInject a shared library into a process.\n");
-	printf("\tinject <pid> -u <handle>\t\tRemove a shared library previously injected into a process.\n");
+	printf("\tinject ([<user>/]exec_name | pid) -i <.so file>\tInject a shared library into a process.\n");
+	printf("\tinject ([<user>/]exec_name | pid) -u <handle>\t\tRemove a shared library previously injected into a process.\n");
 	printf("\n");
 }
 

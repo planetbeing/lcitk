@@ -60,7 +60,7 @@ int main(int argc, const char* const argv[])
 {
 	if(argc < 2)
 	{
-		printf("Usage: %s <pid>\n", argv[0]);
+		printf("Usage: %s ([<user>/]exec_name | pid)\n", argv[0]);
 		return 0;
 	}
 
@@ -68,9 +68,16 @@ int main(int argc, const char* const argv[])
 
 	read_history(".console_history");
 
-	printf("Type '#quit' to exit this program.\n\n");
-
 	int process = resolve_process(argv[1]);
+
+	if(process == 0)
+	{
+		printf("Could not find process: %s\n", argv[1]);
+		return 0;
+	}
+
+	printf("Target process: %d\n", process);
+	printf("Type '#quit' to exit this program, #process <process specifier> to change processes.\n\n");
 
 	void* target_malloc = find_libc_function(process, "malloc");
 	void* target_free = find_libc_function(process, "free");
@@ -101,6 +108,19 @@ int main(int argc, const char* const argv[])
 
 			if(strcmp(expanded, "#quit") == 0)
 				done = 1;
+			else if(strncmp(expanded, "#process ", sizeof("#process ") - 1) == 0)
+			{
+				int p = resolve_process(expanded + sizeof("#process ") - 1);
+				if(p != 0)
+				{
+					process = p;
+					printf("New target process: %d\n", p);
+				}
+				else
+				{
+					printf("Could not find process: %s\n", expanded + sizeof("#process ") - 1);
+				}
+			}
 			else
 			{
 				intptr_t* strings = NULL;
