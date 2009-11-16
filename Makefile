@@ -1,9 +1,12 @@
 CC=gcc
-CFLAGS=-g -fPIC
+CFLAGS=-O2 -fPIC
 
-all: interpose.so inject console
+all: heap.so interpose.so inject console
 
 interpose.so: interpose.o objdump.o process.o util.o asm.o
+	$(CC) $(CFLAGS) $^ -shared -o $@
+
+heap.so: heap.o objdump.o process.o util.o asm.o
 	$(CC) $(CFLAGS) $^ -shared -o $@
 
 inject:	inject.o objdump.o process.o util.o

@@ -10,12 +10,14 @@
 
 #include "util.h"
 #include "objdump.h"
+#include "process.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
 #include <readline/readline.h>
 #include <readline/history.h>
+#include <sys/mman.h>
 
 // Return chopped up pieces like strtok, but using an outside state variable, ignoring excess whitespace
 // and paying attention to quotes.
@@ -79,8 +81,8 @@ int main(int argc, const char* const argv[])
 	printf("Target process: %d\n", process);
 	printf("Type '#quit' to exit this program, #process <process specifier> to change processes.\n\n");
 
-	void* target_malloc = find_libc_function(process, "malloc");
-	void* target_free = find_libc_function(process, "free");
+	void* target_mmap = find_libc_function(process, "mmap");
+	void* target_munmap = find_libc_function(process, "munmap");
 
 	int done = 0;
 	while(!done)
@@ -124,6 +126,7 @@ int main(int argc, const char* const argv[])
 			else
 			{
 				intptr_t* strings = NULL;
+				size_t* stringlens = NULL;
 				int numstrings = 0;
 
 				char* func_name = NULL;
@@ -158,17 +161,27 @@ int main(int argc, const char* const argv[])
 								strings = (intptr_t*) realloc(strings,
 										sizeof(intptr_t) * (numstrings + 1));	
 
+								stringlens = (intptr_t*) realloc(stringlens,
+										sizeof(intptr_t) * (numstrings + 1));	
+
 								strings[numstrings] =
 									call_function_in_target64(process,
-										target_malloc,
-										1, tokenLength);
+										target_mmap,
+										6,
+										0, tokenLength, PROT_READ | PROT_WRITE,
+										MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+
+								stringlens[numstrings] = tokenLength;
 
 								process_write(process, token, tokenLength,
 										strings[numstrings]);
 							
+								process_read(process, token, tokenLength,
+										strings[numstrings]);
+
 								args[numargs] = strings[numstrings];
 
-								printf("0x%llx\n", strings[numstrings]);
+								printf("(%s) 0x%llx\n", token, strings[numstrings]);
 								++numstrings;
 							}
 						}
@@ -222,11 +235,14 @@ int main(int argc, const char* const argv[])
 				for(i = 0; i < numstrings; i++)
 				{
 					printf("Freeing string at 0x%llx.\n", strings[i]);
-					call_function_in_target64(process, target_free, 1, strings[i]);
+					call_function_in_target64(process, target_munmap, 2, strings[i], stringlens[i]);
 				}
 
 				if(strings)
 					free(strings);
+
+				if(stringlens)
+					free(stringlens);
 			}
 
 			free(expanded);

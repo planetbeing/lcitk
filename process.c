@@ -14,6 +14,7 @@
 #include <dlfcn.h>
 #include <limits.h>
 #include <sys/wait.h>
+#include <sys/mman.h>
 #include <sys/ptrace.h>
 #include <linux/user.h>
 #define __RTLD_DLOPEN 0x80000000
@@ -197,7 +198,7 @@ uint64_t call_function_in_target_with_args64(int process, void* function, int nu
 	// situation that will reflect the state just after a call instruction, with the
 	// return address as the real current rip.
 	
-	call_regs = regs;
+	memcpy(&call_regs, &regs, sizeof(regs));
 
 	// align stack to 8
 	call_regs.rsp = (call_regs.rsp + 7) & ~(8 - 1);
@@ -297,6 +298,8 @@ uint64_t call_function_in_target_with_args64(int process, void* function, int nu
 					fprintf(stderr,
 						"Error: signal %d in attempted injection function call!\n", WSTOPSIG(status));
 
+					ptrace(PTRACE_DETACH, process, NULL, NULL);
+					exit(0);
 					break;
 				}
 
@@ -347,7 +350,8 @@ void* inject_so(int process, const char* filename)
 
 	// Allocate room in the target process for the filename of the .so
 	intptr_t fileNameString =
-		call_function_in_target64(process, find_libc_function(process, "malloc"), 1, strlen(filename));
+		call_function_in_target64(process, find_libc_function(process, "mmap"),
+			6, 0, strlen(path) + 1, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
 
 	// Write the filename of the .so into the target process
 	process_write(process, path, strlen(path) + 1, fileNameString);
@@ -357,7 +361,7 @@ void* inject_so(int process, const char* filename)
 			2, fileNameString, RTLD_LAZY | __RTLD_DLOPEN);
 	
 	// Free the filename of the .so
-	call_function_in_target64(process, find_libc_function(process, "free"), 1, fileNameString);
+	call_function_in_target64(process, find_libc_function(process, "munmap"), 2, fileNameString, strlen(path) + 1);
 
 	return (void*) ret;
 }

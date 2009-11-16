@@ -1,4 +1,5 @@
 *.o
+*.so
 inject
 console
 interpose.so

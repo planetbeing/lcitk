@@ -211,7 +211,8 @@ void* find_relocation(int process, const char* image_name, const char* func)
  *  	The name of the function to find.
  *
  *  @param[out] image_path
- *  	Full path of the image with the function.
+ *  	Full path of the image with the function. This must be freed by the caller.
+ *  	Changed only if find_function succeeds.
  *
  *  @return
  *  	The address of the function within the process. NULL if nothing was found.
