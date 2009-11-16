@@ -338,12 +338,19 @@ detach:
  */
 void* inject_so(int process, const char* filename)
 {
+	// Get the full path of the file
+	char resolved_path[PATH_MAX];
+	char* path = realpath(filename, resolved_path);
+
+	if(!path)
+		return NULL;
+
 	// Allocate room in the target process for the filename of the .so
 	intptr_t fileNameString =
 		call_function_in_target64(process, find_libc_function(process, "malloc"), 1, strlen(filename));
 
 	// Write the filename of the .so into the target process
-	process_write(process, filename, strlen(filename) + 1, fileNameString);
+	process_write(process, path, strlen(path) + 1, fileNameString);
 
 	// do dlopen
 	intptr_t ret = call_function_in_target64(process, find_libc_function(process, "__libc_dlopen_mode"),

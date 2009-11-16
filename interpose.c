@@ -65,8 +65,8 @@ void __attribute__ ((constructor)) interpose_init()
 
 void __attribute__ ((destructor)) interpose_fini()
 {
-	printf("uninterposing...\n");
+	//printf("uninterposing...\n");
 	uninterpose64(real_do_loop);
-	printf("removed.\n");
+	//printf("removed.\n");
 	//*relocation = real_write;
 }
