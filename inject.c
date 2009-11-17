@@ -21,9 +21,10 @@
 
 void usage()
 {
-	printf("Usage:\n");
-	printf("\tinject ([<user>/]exec_name | pid) -i <.so file>\tInject a shared library into a process.\n");
-	printf("\tinject ([<user>/]exec_name | pid) -u <handle>\t\tRemove a shared library previously injected into a process.\n");
+	printf("Usage: inject ([<user>/]exec_name | pid) <option>\n");
+	printf(" One of the following options must be given:\n");
+	printf("   %-30s%s\n", "-i <.so file>", "Inject a shared library into a process.");
+	printf("   %-30s%s\n", "-u (<.so file>|<handle>)", "Remove a shared library previously injected into a process.");
 	printf("\n");
 }
 
