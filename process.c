@@ -91,7 +91,16 @@ void process_write(int process, const void* buf, size_t count, off_t addr)
 
 		if(ptrace(PTRACE_POKEDATA, process, (void*)addr, (void*)(*((intptr_t*)buf))) == -1)
 		{
-			ptrace(PTRACE_ATTACH, process, NULL, NULL);
+			if(ptrace(PTRACE_ATTACH, process, NULL, NULL) == -1)
+			{
+				// Guess that wasn't the problem.
+				return;
+			}
+
+			// Wait for process to stop. We need to have it stop before we do anything else.
+			int status;
+			waitpid(process, &status, 0);
+
 			ptrace(PTRACE_POKEDATA, process, (void*)addr, (void*)(*((intptr_t*)buf)));
 			do_detach = 1;
 		}
@@ -105,7 +114,16 @@ void process_write(int process, const void* buf, size_t count, off_t addr)
 	void* cur_word = (void*) ptrace(PTRACE_PEEKDATA, process, (void*)addr, NULL);
 	if(errno != 0)
 	{
-		ptrace(PTRACE_ATTACH, process, NULL, NULL);
+		if(ptrace(PTRACE_ATTACH, process, NULL, NULL) == -1)
+		{
+			// Guess that wasn't the problem.
+			return;
+		}
+
+		// Wait for process to stop. We need to have it stop before we do anything else.
+		int status;
+		waitpid(process, &status, 0);
+
 		do_detach = 1;
 	}
 
@@ -279,6 +297,7 @@ uint64_t call_function_in_target_with_args64(int process, void* function, int nu
 	do 
 	{
 		waitpid(process, &status, 0);
+
 		if(WIFSTOPPED(status))
 		{
 			// We're stopped, but is it at our breakpoint?
