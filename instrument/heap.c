@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <limits.h>
 #include <time.h>
 #include <execinfo.h>
 
@@ -59,6 +60,8 @@ static int NextFreeAllocationCacheEntry = -1;
 
 static time_t logging_started;
 static time_t last_report;
+
+static char LogFilename[PATH_MAX];
 
 static inline Allocation* GetFreeAllocation()
 {
@@ -328,7 +331,7 @@ void instrument_report()
 	sort_allocations_by_age(0, AllocationCacheSize - 1);
 	NextFreeAllocationCacheEntry = -1; // sorting invalidates NextFreeAllocationCacheEntry
 
-	FILE* f = fopen("/tmp/malloc-log", "a");
+	FILE* f = fopen(LogFilename, "a");
 	fprintf(f, "*** BEGIN REPORT: %s ***\n", get_time_str(now - logging_started));
 	fprintf(f, "Peak allocations reached:\t%d\n", AllocationCacheSize);
 	fprintf(f, "Peak backtraces reached:\t%d\n", BacktraceCacheSize);
@@ -418,7 +421,9 @@ void __attribute__ ((constructor)) interpose_init()
 	time(&logging_started);
 	last_report = logging_started;
 
-	FILE* f = fopen("/tmp/malloc-log", "a");
+	snprintf(LogFilename, PATH_MAX, "/tmp/malloc-log.%d", getpid());
+
+	FILE* f = fopen(LogFilename, "a");
 	fprintf(f, "------ LOGGING STARTED ------\n");
 	fclose(f);
 
@@ -427,23 +432,52 @@ void __attribute__ ((constructor)) interpose_init()
 	free_relocation = find_relocation(getpid(), "", "free");
 	realloc_relocation = find_relocation(getpid(), "", "realloc");
 
-	real_calloc = *calloc_relocation;
-	real_malloc = *malloc_relocation;
-	real_free = *free_relocation;
-	real_realloc = *realloc_relocation;
+	if(calloc_relocation)
+	{
+		real_calloc = *calloc_relocation;
+		*calloc_relocation = calloc_hook;
+	}
+	else
+		real_calloc = &calloc;
 
-	*calloc_relocation = calloc_hook;
-	*malloc_relocation = malloc_hook;
-	*free_relocation = free_hook;
-	*realloc_relocation = realloc_hook;
+	if(malloc_relocation)
+	{
+		real_malloc = *malloc_relocation;
+		*malloc_relocation = malloc_hook;
+	}
+	else
+		real_malloc = &malloc;
+
+	if(free_relocation)
+	{
+		real_free = *free_relocation;
+		*free_relocation = free_hook;
+	}
+	else
+		real_free = &free;
+
+	if(realloc_relocation)
+	{
+		real_realloc = *realloc_relocation;
+		*realloc_relocation = realloc_hook;
+	}
+	else
+		real_realloc = &realloc;
 }
 
 void __attribute__ ((destructor)) interpose_fini()
 {
-	*calloc_relocation = real_calloc;
-	*malloc_relocation = real_malloc;
-	*free_relocation = real_free;
-	*realloc_relocation = real_realloc;
+	if(calloc_relocation)
+		*calloc_relocation = real_calloc;
+
+	if(malloc_relocation)
+		*malloc_relocation = real_malloc;
+
+	if(free_relocation)
+		*free_relocation = real_free;
+
+	if(realloc_relocation)
+		*realloc_relocation = real_realloc;
 
 	instrument_report();
 
@@ -463,7 +497,7 @@ void __attribute__ ((destructor)) interpose_fini()
 	if(BacktraceCache)
 		free(BacktraceCache);
 
-	FILE* f = fopen("/tmp/malloc-log", "a");
+	FILE* f = fopen(LogFilename, "a");
 	fprintf(f, "------ END ------\n");
 	fclose(f);
 }
