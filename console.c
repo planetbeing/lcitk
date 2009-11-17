@@ -121,6 +121,7 @@ int main(int argc, const char* const argv[])
 				char* func_name = NULL;
 				uint64_t* args = NULL;
 				int numargs = 0;
+				int bad_args = 0;
 				char* tokenizer_state = expanded;
 				char* token = tokenizer(&tokenizer_state);
 				do
@@ -176,7 +177,26 @@ int main(int argc, const char* const argv[])
 						}
 						else
 						{
-							args[numargs] = strtoll(token, NULL, 0);
+							char* endptr;
+							args[numargs] = strtoll(token, &endptr, 0);
+							if(*endptr != '\0') // check if valid number found
+							{
+								// symbol name
+								void* sym = find_function(process, "", token, NULL);
+								if(!sym)
+									sym = find_function(process, "/libc", token, NULL);
+
+								if(sym)
+								{
+									printf("Found symbol %s at %p\n", token, sym);
+									args[numargs] = (intptr_t) sym;
+								}
+								else
+								{
+									printf("Could not find symbol %s\n", token);
+									bad_args = 1;
+								}
+							}
 						}
 
 						++numargs;
@@ -191,7 +211,7 @@ int main(int argc, const char* const argv[])
 
 				int i;
 
-				if(function)
+				if(function && !bad_args)
 				{
 					printf("Calling '%s' at 0x%p (%s) with %d arguments (",
 							func_name, function, image_path, numargs);
@@ -213,7 +233,8 @@ int main(int argc, const char* const argv[])
 				}
 				else
 				{
-					printf("Cannot find function '%s' to call.\n", func_name);
+					if(!function)
+						printf("Cannot find function '%s' to call.\n", func_name);
 				}
 
 				free(func_name);
