@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
+#include <setjmp.h>
 #include <readline/readline.h>
 #include <readline/history.h>
 #include <sys/mman.h>
@@ -58,6 +59,17 @@ char* tokenizer(char** state)
 	return start;
 }
 
+jmp_buf abort_readline;
+
+int done = 0;
+
+void interrupt_handler(int signum)
+{
+	done = 1;
+	printf("\n");	// blank line to get off the input line
+	longjmp(abort_readline, 1);
+}
+
 int main(int argc, const char* const argv[])
 {
 	if(argc < 2)
@@ -65,10 +77,6 @@ int main(int argc, const char* const argv[])
 		printf("Usage: %s ([<user>/]exec_name | pid)\n", argv[0]);
 		return 0;
 	}
-
-	using_history();
-
-	read_history(".console_history");
 
 	int process = resolve_process(argv[1]);
 
@@ -84,9 +92,25 @@ int main(int argc, const char* const argv[])
 	void* target_mmap = find_libc_function(process, "mmap");
 	void* target_munmap = find_libc_function(process, "munmap");
 
-	int done = 0;
+	// detach and save history gracefully upon receipt of these signals
+	
+	signal(SIGINT, interrupt_handler);
+	signal(SIGTERM, interrupt_handler);
+	signal(SIGALRM, interrupt_handler);
+	signal(SIGHUP, interrupt_handler);
+
+	rl_set_signals();
+
+	using_history();
+
+	read_history(".console_history");
+
+	done = 0;
 	while(!done)
 	{
+		if(setjmp(abort_readline) != 0)
+			continue;
+
 		char* line = readline("> ");
 
 		if(line && *line)
