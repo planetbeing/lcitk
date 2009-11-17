@@ -110,6 +110,9 @@ int parse_objdump_asm(const char* line, Instruction* inst)
 /**
  *  Populates an array of Instruction structs for a range of addresses within a binary image.
  *
+ *  @param[in] file
+ *      Object file containing the instructions
+ *
  *  @param[in] address
  *      Offset within the image to start disassembly
  *
@@ -145,6 +148,49 @@ int get_instructions(const char* file, void* address, int bytes, Instruction* in
 	return count;
 }
 
+/**
+ *  Populates an array of Instruction structs for a range of addresses.
+ *
+ *  @param[in] address
+ *      Buffer containing the instructions.
+ *
+ *  @param[in] bytes
+ *      The minimum number of bytes that must be covered by the instructions outputed.
+ *
+ *  @param[out] insns
+ *      The instructions in the specified range.
+ *
+ */
+int get_instructions_from_memory(const void* address, int bytes, Instruction* insns)
+{
+	char tempFile[PATH_MAX];
+	
+	tmpnam(tempFile);
+
+	FILE* f = fopen(tempFile, "w");
+	fwrite(address, 1, bytes, f);
+	fclose(f);
+
+	int count = 0;
+	char* disasm = get_command_output("/usr/bin/objdump", 
+			"/usr/bin/objdump", "-m", "-i386", "-M", "x86-64", "-D", tempFile, NULL);
+
+	unlink(tempFile);
+
+	char* disasmLine = strtok(disasm, "\n");        // TODO: Not thread-safe
+	do
+	{
+		if(parse_objdump_asm(disasmLine, &insns[count]))
+			++count;
+	}
+	while((disasmLine = strtok(NULL, "\n")) != NULL);
+
+	free(disasm);
+
+	insns[count].length = 0;
+
+	return count;
+}
 
 /**
  *  Interpose an AMD64 ABI function.
@@ -155,24 +201,20 @@ int get_instructions(const char* file, void* address, int bytes, Instruction* in
  *  @param[in] address
  *  	The address of the function.
  *
- *  @param[in] image_path
- *  	The full path of the object binary containing the instructions for the original function.
- *  	This is necessary to get the disassembly.
- *
  *  @return
  *  	The address of a trampoline function that may be called to perform the job of the uninterposed target.
  *  	NULL if the function could not be interposed.
  *
  */
 //TODO: Use gnu as to make the image_path parameter unnecessary.
-void* interpose64(void* dst, void* address, const char* image_path)
+void* interpose_by_address64(void* dst, void* address)
 {
 	int page_size = sysconf(_SC_PAGE_SIZE);
 
 	void* trampoline = mmap(NULL, page_size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANONYMOUS | MAP_PRIVATE, 0, 0);
 
 	Instruction insns[32];
-	int num_insns = get_instructions(image_path, address, 14, insns);
+	int num_insns = get_instructions_from_memory(address, 14, insns);
 
 	int i;
 	char* trampoline_cursor = (char*) trampoline;
@@ -233,33 +275,6 @@ void* interpose64(void* dst, void* address, const char* image_path)
 }
 
 /**
- *  Interpose an AMD64 ABI function by address.
- *
- *  @param[in] dst
- *  	The address of the function to redirect calls to the target function to.
- *
- *  @param[in] image_name
- *  	The name of the executable image_name that the target function can be found in. Blank for the main image.
- *
- *  @param[in] func
- *  	The name of the function to interpose. The function name must be found within the symbol table.
- *
- *  @return
- *  	The address of a trampoline function that may be called to perform the job of the uninterposed target.
- *  	NULL if the function could not be interposed.
- *
- */
-void* interpose_by_address64(void* dst, void* address)
-{
-	char image_path[PATH_MAX];
-
-	if(!find_image_for_address(getpid(), address, image_path))
-		return NULL;
-
-	return interpose64(dst, address, image_path);
-}
-
-/**
  *  Interpose an AMD64 ABI function.
  *
  *  @param[in] dst
@@ -278,10 +293,8 @@ void* interpose_by_address64(void* dst, void* address)
  */
 void* interpose_by_name64(void* dst, const char* image_name, const char* func)
 {
-	char* image_path;
-	void* address = find_function(getpid(), image_name, func, &image_path);
-	void* trampoline = interpose64(dst, address, image_path);
-	free(image_path);
+	void* address = find_function(getpid(), image_name, func, NULL);
+	void* trampoline = interpose_by_address64(dst, address);
 	return trampoline;
 }
 
