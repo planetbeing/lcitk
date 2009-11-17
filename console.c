@@ -20,48 +20,13 @@
 #include <readline/history.h>
 #include <sys/mman.h>
 
-// Return chopped up pieces like strtok, but using an outside state variable, ignoring excess whitespace
-// and paying attention to quotes.
-char* tokenizer(char** state)
-{
-	char* str = *state;
-	char* start = str;
-	int inquotes = 0;
-	int blank = 1;
-
-	if(*str == '\0')
-		return NULL;
-
-	while(((*str != ' ' && *str != '\n' && *str != '\t') || inquotes || blank) && *str != '\0')
-	{
-		if(*str == '\"')
-			inquotes = !inquotes;
-		
-		if(*str != ' ' && *str != '\t' && *str != '\t')
-			blank = 0;
-
-		if(blank)
-			start++;
-
-		*str++;
-	}
-	
-	if(*str != '\0')
-	{
-		*str = '\0';
-		*state = str + 1;
-	}
-	else
-	{
-		*state = str;
-	}
-
-	return start;
-}
-
 jmp_buf abort_readline;
 
 int done = 0;
+
+// forward declarations
+char* tokenizer(char** state);
+char* handle_escape(char* str);
 
 void interrupt_handler(int signum)
 {
@@ -274,5 +239,172 @@ int main(int argc, const char* const argv[])
 	}
 
 	write_history(".console_history");
+}
+
+// Return chopped up pieces like strtok, but using an outside state variable, ignoring excess whitespace
+// and paying attention to quotes, also performing C style escape expansion.
+char* tokenizer(char** state)
+{
+	char* str = *state;
+	char* start = str;
+	int inquotes = 0;
+	int blank = 1;
+
+	if(*str == '\0')
+		return NULL;
+
+	while(((*str != ' ' && *str != '\n' && *str != '\t') || inquotes || blank) && *str != '\0')
+	{
+		if(*str == '\\')
+		{
+			str = handle_escape(str);
+			continue;
+		}
+
+		if(*str == '\"')
+			inquotes = !inquotes;
+		
+		if(*str != ' ' && *str != '\t' && *str != '\t')
+			blank = 0;
+
+		if(blank)
+			start++;
+
+		*str++;
+	}
+	
+	if(*str != '\0')
+	{
+		*str = '\0';
+		*state = str + 1;
+	}
+	else
+	{
+		*state = str;
+	}
+
+	return start;
+}
+
+// Perform C-style escape expansion on the following escape sequence + str, moving the str forward
+// to cover the memory once occupied by the escape sequence
+char* handle_escape(char* str)
+{
+	int escapelen;	// number of characters in the escape sequence, e.g. '\n' is 2
+	int codelen;	// number of characters coded for, e.g. '\n' is 1
+
+	switch(*(str + 1))
+	{
+		case 'a':
+			escapelen = 2;
+			codelen = 1;
+			*str = '\a';
+			break;
+
+		case 'b':
+			escapelen = 2;
+			codelen = 1;
+			*str = '\b';
+			break;
+
+		case 'f':
+			escapelen = 2;
+			codelen = 1;
+			*str = '\f';
+			break;
+
+		case 'n':
+			escapelen = 2;
+			codelen = 1;
+			*str = '\n';
+			break;
+
+		case 'r':
+			escapelen = 2;
+			codelen = 1;
+			*str = '\r';
+			break;
+
+		case 't':
+			escapelen = 2;
+			codelen = 1;
+			*str = '\t';
+			break;
+
+		case 'x':
+			{
+				if(*(str + 2) == '\0' || *(str + 3) == '\0')
+				{
+					escapelen = 1;
+					codelen = 1;
+					break;
+				}
+
+				char buf[3];
+				char* endptr;
+				buf[0] = *(str + 2);
+				buf[1] = *(str + 3);
+				buf[2] = '\0';
+				*str = (char)strtol(buf, &endptr, 16);
+				if(*endptr != '\0')
+				{
+					*str = '\\';
+					escapelen = 1;
+					codelen = 1;
+					break;
+				}
+
+				escapelen = 4;
+				codelen = 1;
+				break;
+			}
+
+		case '\0':
+			escapelen = 1;
+			codelen = 1;
+			break;
+
+		default:
+			if('0' <= *(str + 1) && *(str + 1) <= '9')
+			{
+				// octal
+				if(*(str + 1) == '\0' || *(str + 2) == '\0' || *(str + 3) == '\0')
+				{
+					escapelen = 1;
+					codelen = 1;
+					break;
+				}
+
+				char buf[4];
+				char* endptr;
+				buf[0] = *(str + 1);
+				buf[1] = *(str + 2);
+				buf[2] = *(str + 3);
+				buf[3] = '\0';
+				*str = (char)strtol(buf, &endptr, 8);
+				if(*endptr != '\0')
+				{
+					*str = '\\';
+					escapelen = 1;
+					codelen = 1;
+					break;
+				}
+
+				escapelen = 4;
+				codelen = 1;
+				break;
+			}
+
+			*str = *(str + 1);
+			escapelen = 2;
+			codelen = 1;
+			break;
+	}
+
+	// shift the entire buffer forward by the appropriate number of characters
+	memmove(str + codelen, str + escapelen, strlen(str + escapelen) + 1);
+	str += codelen;
+
+	return str;
 }
 
