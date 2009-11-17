@@ -179,7 +179,10 @@ void* interpose64(void* dst, void* address, const char* image_path)
 	for(i = 0; i < num_insns; i++)
 	{
 		// loop through and copy instructions to the trampoline one by one
-		if(strstr(insns[i].operands, "%rip") != NULL)
+		if(strstr(insns[i].operands, "%rip") != NULL
+			|| strncmp(insns[i].mnemonic, "j", sizeof("j") - 1) == 0
+			|| strncmp(insns[i].mnemonic, "call", sizeof("call") - 1) == 0
+			|| strncmp(insns[i].mnemonic, "loop", sizeof("loop") - 1) == 0)
 		{
 			fprintf(stderr, "Error: PC dependent instruction at 0x%p: %s %s\n",
 					insns[i].address, insns[i].mnemonic, insns[i].operands);
