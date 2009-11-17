@@ -230,6 +230,8 @@ int find_process(const char* user, const char* name)
 
 	closedir(procfs);
 
+	free(buf);
+
 	return found;
 }
 
