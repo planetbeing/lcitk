@@ -13,8 +13,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <limits.h>
 #include "util.h"
 #include "asm.h"
+#include "objdump.h"
+#include "process.h"
 
 void usage()
 {
@@ -40,9 +43,43 @@ int main(int argc, const char* const argv[])
 	}
 	else if(strncmp(argv[2], "-u", 2) == 0)
 	{
-		void* handle;
-		sscanf(argv[3], "%llx", &handle);
-		printf("Uninjection returned: %d\n", uninject_so(pid, handle));
+		char* endptr;
+		void* handle = (void*) strtoll(argv[3], &endptr, 16);
+		if(*endptr == '\0')
+		{
+			// "handle" argument, use directly.
+			printf("Uninjection returned: %d\n", uninject_so(pid, handle));
+		}
+		else
+		{
+			// first, make sure the image is loaded. We do this by attempting
+			// find the load address of the full path of the .so inside the
+			// process's memory.
+			char resolved_path[PATH_MAX];
+			char* path = realpath(argv[3], resolved_path);
+			if(!path)
+			{
+				fprintf(stderr, "Cannot find %s to uninject!\n", argv[3]);
+				return 1;
+			}
+
+			char image_out_path[PATH_MAX];
+			intptr_t image_start;
+			if(find_image_address(pid, path, image_out_path, &image_start))
+			{
+				void* handle = inject_so(pid, path);
+
+				// get rid of the reference we just made
+				uninject_so(pid, handle);
+
+				// get rid of the first injection's reference, hopefully
+				printf("Uninjection returned: %d\n", uninject_so(pid, handle));
+			}
+			else
+			{
+				printf("The file %s is not loaded in proess %d.\n", path, pid);
+			}
+		}
 	}
 	else
 	{

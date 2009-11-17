@@ -43,12 +43,19 @@ int find_image_address(int process, const char* image_name, char image_path[PATH
 	{
 		unsigned long long start;
 		char permissions[PATH_MAX];
+		char is_deleted[PATH_MAX];
+		int scanned;
 
-		if(sscanf(buf, "%llx-%*llx %s %*llx %*s %*d %s", &start, permissions, image_path) != 3)
+		if((scanned =
+			sscanf(buf, "%llx-%*llx %s %*llx %*s %*d %s %s", &start, permissions, image_path, is_deleted)) < 3)
 			continue;
 
 		// we're looking for an entry that is both readable and executable
 		if(permissions[0] != 'r' || permissions[2] != 'x')
+			continue;
+
+		// we're looking for an entry that is not deleted
+		if(scanned == 4 && strncmp(is_deleted, "(deleted)", sizeof("(deleted)") - 1) == 0)
 			continue;
 
 		// the filename should also start with the image_name
