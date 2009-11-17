@@ -1,6 +1,8 @@
 #ifndef PROCESS_H
 #define PROCESS_H
 
+#define _FILE_OFFSET_BITS 64
+
 #include <stdlib.h>
 #include <stdint.h>
 

@@ -73,7 +73,7 @@ char* get_command_output(const char* path, char* arg, ...)
  *  	The stdout of the command. free() may be called with it when done.
  *
  */
-char* get_command_output_with_input(const char* path, char* input, size_t input_size, char* argv[])
+char* get_command_output_with_input(const char* path, const void* input, size_t input_size, char* argv[])
 {	
 	// Create pipes
 	int stdout_pipe[2];

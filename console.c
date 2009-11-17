@@ -8,6 +8,8 @@
  *
  */
 
+#define _FILE_OFFSET_BITS 64
+
 #include "util.h"
 #include "objdump.h"
 #include "process.h"
@@ -27,6 +29,7 @@ int done = 0;
 // forward declarations
 char* tokenizer(char** state);
 char* handle_escape(char* str);
+void process_command(int process, void* target_mmap, void* target_munmap, char* expanded);
 
 void interrupt_handler(int signum)
 {
@@ -114,145 +117,7 @@ int main(int argc, const char* const argv[])
 			}
 			else
 			{
-				intptr_t* strings = NULL;
-				size_t* stringlens = NULL;
-				int numstrings = 0;
-
-				char* func_name = NULL;
-				uint64_t* args = NULL;
-				int numargs = 0;
-				int bad_args = 0;
-				char* tokenizer_state = expanded;
-				char* token = tokenizer(&tokenizer_state);
-				do
-				{
-					if(!func_name)
-					{
-						func_name = strdup(token);
-					}
-					else
-					{
-						args = (uint64_t*) realloc(args, sizeof(uint64_t) * (numargs + 1));	
-
-						if(token[0] == '\"')
-						{
-							int tokenLength = strlen(token);
-							if(token[tokenLength-1] == '\"')
-							{
-								// Make tokenLength = string length + 1 (for the \0)
-								// Make token the start of the string
-								token[tokenLength-1] = '\0';
-								++token;
-								--tokenLength;
-
-								printf("Allocating string \"%s\" ... ", token);
-
-								// Allocate it within target process and copy the string
-								strings = (intptr_t*) realloc(strings,
-										sizeof(intptr_t) * (numstrings + 1));	
-
-								stringlens = (intptr_t*) realloc(stringlens,
-										sizeof(intptr_t) * (numstrings + 1));	
-
-								strings[numstrings] =
-									call_function_in_target64(process,
-										target_mmap,
-										6,
-										0, tokenLength, PROT_READ | PROT_WRITE,
-										MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
-
-								stringlens[numstrings] = tokenLength;
-
-								process_write(process, token, tokenLength,
-										strings[numstrings]);
-							
-								process_read(process, token, tokenLength,
-										strings[numstrings]);
-
-								args[numargs] = strings[numstrings];
-
-								printf("(%s) 0x%llx\n", token, strings[numstrings]);
-								++numstrings;
-							}
-						}
-						else
-						{
-							char* endptr;
-							args[numargs] = strtoll(token, &endptr, 0);
-							if(*endptr != '\0') // check if valid number found
-							{
-								// symbol name
-								void* sym = find_function(process, "", token, NULL);
-								if(!sym)
-									sym = find_function(process, "/libc", token, NULL);
-
-								if(sym)
-								{
-									printf("Found symbol %s at %p\n", token, sym);
-									args[numargs] = (intptr_t) sym;
-								}
-								else
-								{
-									printf("Could not find symbol %s\n", token);
-									bad_args = 1;
-								}
-							}
-						}
-
-						++numargs;
-					}
-				}
-				while((token = tokenizer(&tokenizer_state)) != NULL);
-
-				char* image_path = NULL;
-				void* function = find_function(process, "", func_name, &image_path);
-				if(!function)
-					function = find_function(process, "/libc", func_name, &image_path);
-
-				int i;
-
-				if(function && !bad_args)
-				{
-					printf("Calling '%s' at 0x%p (%s) with %d arguments (",
-							func_name, function, image_path, numargs);
-
-					for(i = 0; i < numargs; i++)
-					{
-						if(i != 0)
-							printf(", ");
-
-						printf("%llx", args[i]);
-					}
-
-					printf(")...\n");
-
-					uint64_t ret = call_function_in_target_with_args64(process, function, numargs, args);
-					free(image_path);
-				
-					printf("Return value (hex/dec/oct): 0x%llx / %lld / 0%llo\n", ret, ret, ret);
-				}
-				else
-				{
-					if(!function)
-						printf("Cannot find function '%s' to call.\n", func_name);
-				}
-
-				free(func_name);
-
-				if(args)
-					free(args);
-
-				for(i = 0; i < numstrings; i++)
-				{
-					printf("Freeing string at 0x%llx.\n", strings[i]);
-					call_function_in_target64(process, target_munmap, 2, strings[i], stringlens[i]);
-				}
-
-				if(strings)
-					free(strings);
-
-				if(stringlens)
-					free(stringlens);
+				process_command(process, target_mmap, target_munmap, expanded);
 			}
 
 			free(expanded);
@@ -260,6 +125,177 @@ int main(int argc, const char* const argv[])
 	}
 
 	write_history(".console_history");
+}
+
+// Perform argument parsing and possibly execute a command in the inferior
+void process_command(int process, void* target_mmap, void* target_munmap, char* expanded)
+{
+	intptr_t* strings = NULL;
+	size_t* stringlens = NULL;
+	int numstrings = 0;
+
+	char* func_name = NULL;
+	uint64_t* args = NULL;
+	int numargs = 0;
+	int bad_args = 0;
+	char* tokenizer_state = expanded;
+	char* token = tokenizer(&tokenizer_state);
+	do
+	{
+		if(!func_name)
+		{
+			func_name = strdup(token);
+		}
+		else
+		{
+			args = (uint64_t*) realloc(args, sizeof(uint64_t) * (numargs + 1));	
+
+			if(token[0] == '\"')
+			{
+				int tokenLength = strlen(token);
+				if(token[tokenLength-1] == '\"')
+				{
+					// Make tokenLength = string length + 1 (for the \0)
+					// Make token the start of the string
+					token[tokenLength-1] = '\0';
+					++token;
+					--tokenLength;
+
+					printf("Allocating string \"%s\" ... ", token);
+
+					// Allocate it within target process and copy the string
+					strings = (intptr_t*) realloc(strings,
+							sizeof(intptr_t) * (numstrings + 1));	
+
+					stringlens = (intptr_t*) realloc(stringlens,
+							sizeof(intptr_t) * (numstrings + 1));	
+
+					strings[numstrings] =
+						call_function_in_target64(process,
+								target_mmap,
+								6,
+								0, tokenLength, PROT_READ | PROT_WRITE,
+								MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+
+					stringlens[numstrings] = tokenLength;
+
+					process_write(process, token, tokenLength,
+							strings[numstrings]);
+
+					process_read(process, token, tokenLength,
+							strings[numstrings]);
+
+					args[numargs] = strings[numstrings];
+
+					printf("(%s) 0x%llx\n", token, strings[numstrings]);
+					++numstrings;
+				}
+			}
+			else
+			{
+				char* endptr;
+				args[numargs] = strtoll(token, &endptr, 0);
+				if(*endptr != '\0') // check if valid number found
+				{
+					// symbol name
+					void* sym = find_function(process, "", token, NULL);
+					if(!sym)
+						sym = find_function(process, "/libc", token, NULL);
+
+					if(sym)
+					{
+						printf("Found symbol %s at %p\n", token, sym);
+						args[numargs] = (intptr_t) sym;
+					}
+					else
+					{
+						printf("Could not find symbol %s\n", token);
+						bad_args = 1;
+					}
+				}
+			}
+
+			++numargs;
+		}
+	}
+	while((token = tokenizer(&tokenizer_state)) != NULL);
+
+	int i;
+
+	if(func_name[0] != '#' && !bad_args)
+	{
+		char* image_path = NULL;
+		void* function = find_function(process, "", func_name, &image_path);
+		if(!function)
+			function = find_function(process, "/libc", func_name, &image_path);
+
+		if(function)
+		{
+			printf("Calling '%s' at 0x%p (%s) with %d arguments (",
+					func_name, function, image_path, numargs);
+
+			for(i = 0; i < numargs; i++)
+			{
+				if(i != 0)
+					printf(", ");
+
+				printf("%llx", args[i]);
+			}
+
+			printf(")...\n");
+
+			uint64_t ret = call_function_in_target_with_args64(process, function, numargs, args);
+			free(image_path);
+
+			printf("Return value (hex/dec/oct): 0x%llx / %lld / 0%llo\n", ret, ret, ret);
+		}
+		else
+		{
+			printf("Cannot find function '%s' to call.\n", func_name);
+		}
+
+		free(func_name);
+	}
+	else
+	{
+		if(!bad_args)
+		{
+			if(strcmp(func_name, "#read") == 0)
+			{
+				if(numargs != 2)
+				{
+					printf("#read <addr> <len>\n");
+				}
+				else
+				{
+					char* buffer = (char*) malloc(args[1]);
+					memset(buffer, 0, args[1]);
+					process_read(process, buffer, args[1], args[0]);
+					char* output = get_command_output_with_input(
+							"/usr/bin/hexdump", buffer, args[1],
+							(char*[]){"/usr/bin/hexdump", "-C", NULL});
+
+					printf("%s\n", output);
+					free(output);
+				}
+			}
+		}
+	}
+
+	if(args)
+		free(args);
+
+	for(i = 0; i < numstrings; i++)
+	{
+		printf("Freeing string at 0x%llx.\n", strings[i]);
+		call_function_in_target64(process, target_munmap, 2, strings[i], stringlens[i]);
+	}
+
+	if(strings)
+		free(strings);
+
+	if(stringlens)
+		free(stringlens);
 }
 
 // Return chopped up pieces like strtok, but using an outside state variable, ignoring excess whitespace
