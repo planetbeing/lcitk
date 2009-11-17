@@ -34,13 +34,12 @@
  *
  */
 char* get_command_output(const char* path, char* arg, ...)
-{	
+{
 	va_list ap;
 	char* argv[128];
 	int argvIdx = 0;
 	char* cur_arg;
 
-	// Turn argument list into something execv can use
 	va_start(ap, arg);
 	for(cur_arg = arg; cur_arg != NULL; cur_arg = va_arg(ap, char*))
 	{
@@ -52,9 +51,37 @@ char* get_command_output(const char* path, char* arg, ...)
 
 	argv[argvIdx] = NULL;
 
-	// Create pipe
+	return get_command_output_with_input(path, NULL, 0, argv);
+}
+
+/**
+ *  For the specified command line, return a malloc'd string containing the stdout of the command when executed.
+ *
+ *  @param[in] path
+ *  	The command's path.
+ *
+ *  @param[in] input
+ *  	Data to give the child process as stdin. NULL if no explicit stdin has to be given.
+ *
+ *  @param[in] input_size
+ *  	Number of bytes in input
+ *
+ *  @param[in] argv
+ *  	The arguments to pass to the command. The list must be terminated by NULL.
+ *
+ *  @return
+ *  	The stdout of the command. free() may be called with it when done.
+ *
+ */
+char* get_command_output_with_input(const char* path, char* input, size_t input_size, char* argv[])
+{	
+	// Create pipes
 	int stdout_pipe[2];
+	int stdin_pipe[2];
 	pipe(stdout_pipe);
+
+	if(input)
+		pipe(stdin_pipe);
 
 	// Create child
 	pid_t pid = fork();
@@ -62,13 +89,30 @@ char* get_command_output(const char* path, char* arg, ...)
 	{
 		close(stdout_pipe[0]);
 		dup2(stdout_pipe[1], 1);
+
+		if(input)
+		{
+			close(stdin_pipe[1]);
+			dup2(stdin_pipe[0], 0);
+		}
+
 		execv(path, argv);
 		exit(0);
 	}
 
-	// Read child output
+	// Close our write side of the stdout pipe
 	close(stdout_pipe[1]);
 
+	// Write input to stdin if necessary
+	if(input)
+	{
+		close(stdin_pipe[0]);
+		FILE* childStdin = fdopen(stdin_pipe[1], "w");
+		fwrite(input, 1, input_size, childStdin);
+		fclose(childStdin);
+	}
+
+	// Read child output
 	FILE* childStdout = fdopen(stdout_pipe[0], "r");
 
 	char* retval = NULL;
