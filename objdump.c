@@ -43,19 +43,13 @@ int find_image_address(int process, const char* image_name, char image_path[PATH
 	{
 		unsigned long long start;
 		char permissions[PATH_MAX];
-		char is_deleted[PATH_MAX];
 		int scanned;
 
-		if((scanned =
-			sscanf(buf, "%llx-%*llx %s %*llx %*s %*d %s %s", &start, permissions, image_path, is_deleted)) < 3)
+		if((scanned = sscanf(buf, "%llx-%*llx %s %*llx %*s %*d %s", &start, permissions, image_path)) != 3)
 			continue;
 
 		// we're looking for an entry that is both readable and executable
 		if(permissions[0] != 'r' || permissions[2] != 'x')
-			continue;
-
-		// we're looking for an entry that is not deleted
-		if(scanned == 4 && strncmp(is_deleted, "(deleted)", sizeof("(deleted)") - 1) == 0)
 			continue;
 
 		// the filename should also start with the image_name
@@ -139,7 +133,7 @@ int find_image_for_address(int process, void* address, char image_path[PATH_MAX]
 
 	*image_start = 0;
 
-	// The first step is to find which mapping contains teh address.
+	// The first step is to find which mapping contains the address.
 
 	snprintf(buf, sizeof(buf), "/proc/%d/maps", process);
 
@@ -151,20 +145,13 @@ int find_image_for_address(int process, void* address, char image_path[PATH_MAX]
 	{
 		unsigned long long start;
 		unsigned long long end;
-		char is_deleted[PATH_MAX];
 		int scanned;
 
-		if((scanned =
-			sscanf(buf, "%llx-%llx %*s %*llx %*s %*d %s %s", &start, &end, image_path, is_deleted)) < 3)
-
+		if((scanned = sscanf(buf, "%llx-%llx %*s %*llx %*s %*d %s", &start, &end, image_path)) != 3)
 			continue;
 
 		// skip if our address is not within range
 		if(!(start <= iAddress && iAddress <= end))
-			continue;
-
-		// we're looking for an entry that is not deleted
-		if(scanned == 4 && strncmp(is_deleted, "(deleted)", sizeof("(deleted)") - 1) == 0)
 			continue;
 
 		// this is probably it. let's use it.

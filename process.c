@@ -377,7 +377,7 @@ void* inject_so(int process, const char* filename)
 
 	// do dlopen
 	intptr_t ret = call_function_in_target64(process, find_libc_function(process, "__libc_dlopen_mode"),
-			2, fileNameString, RTLD_LAZY | __RTLD_DLOPEN);
+			2, fileNameString, RTLD_NOW | __RTLD_DLOPEN);
 	
 	// Free the filename of the .so
 	call_function_in_target64(process, find_libc_function(process, "munmap"), 2, fileNameString, strlen(path) + 1);
