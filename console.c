@@ -13,6 +13,7 @@
 #include "util.h"
 #include "objdump.h"
 #include "process.h"
+#include "symtab.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -60,6 +61,8 @@ int main(int argc, const char* const argv[])
 	void* target_mmap = find_libc_function(process, "mmap");
 	void* target_munmap = find_libc_function(process, "munmap");
 
+	SymtabCache* cache = new_symtab_cache();
+
 	// detach and save history gracefully upon receipt of these signals
 	
 	signal(SIGINT, interrupt_handler);
@@ -97,7 +100,6 @@ int main(int argc, const char* const argv[])
 				continue;
 			}
 
-			free(line);
 			add_history(expanded);
 
 			if(strcmp(expanded, "#quit") == 0)
@@ -115,6 +117,20 @@ int main(int argc, const char* const argv[])
 					printf("Could not find process: %s\n", expanded + sizeof("#process ") - 1);
 				}
 			}
+			else if(strncmp(expanded, "#whatis ", sizeof("#whatis ") - 1) == 0)
+			{
+				void* address = (void*) strtoll(expanded + sizeof("#whatis ") - 1, NULL, 0);
+				void* symbol_address;
+				const char* name = find_symbol_for_address(cache, process, address, &symbol_address);
+				if(name)
+				{
+					printf("Found %s at %p for %p\n", name, symbol_address, address);
+				}
+				else
+				{
+					printf("Could not find symbol for address %p\n", address);
+				}
+			}
 			else
 			{
 				process_command(process, target_mmap, target_munmap, expanded);
@@ -122,9 +138,16 @@ int main(int argc, const char* const argv[])
 
 			free(expanded);
 		}
+
+		if(line)
+			free(line);
 	}
 
 	write_history(".console_history");
+
+	free_symtab_cache(cache);
+
+	return 0;
 }
 
 // Perform argument parsing and possibly execute a command in the inferior

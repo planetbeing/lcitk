@@ -3,7 +3,7 @@ project(LCITK)
 
 include_directories(${LCITK_SOURCE_DIR})
 
-add_library(lcitk util.c objdump.c process.c asm.c)
+add_library(lcitk util.c objdump.c process.c asm.c symtab.c)
 set_target_properties(lcitk PROPERTIES COMPILE_FLAGS "-fPIC")
 
 add_executable(inject inject.c)
