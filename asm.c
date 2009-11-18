@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <inttypes.h>
 #include <string.h>
 #include <unistd.h>
 #include <limits.h>
@@ -40,7 +41,7 @@ int parse_objdump_asm(const char* line, Instruction* inst)
 		buf[i++] = *line++;
 	}
 	buf[i] = '\0';
-	sscanf(buf, "%llx", &inst->address);
+	sscanf(buf, "%" SCNxPTR, &inst->address);
 
 	if(!('0' <= buf[0] && buf[0] <= '9'))
 	{
@@ -128,8 +129,8 @@ int get_instructions(const char* file, void* address, int bytes, Instruction* in
 	char start_addr[64];
 	char stop_addr[64];
 
-	snprintf(start_addr, sizeof(start_addr), "--start-address=0x%x", address);
-	snprintf(stop_addr, sizeof(stop_addr), "--stop-address=0x%x", (intptr_t) address + bytes);
+	snprintf(start_addr, sizeof(start_addr), "--start-address=0x%" PRIxPTR, (intptr_t) address);
+	snprintf(stop_addr, sizeof(stop_addr), "--stop-address=0x%" PRIxPTR, (intptr_t) address + bytes);
 
 	int count = 0;
 	char* disasm = get_command_output("/usr/bin/objdump", "/usr/bin/objdump", "-D", file, start_addr, stop_addr, NULL);
@@ -227,7 +228,7 @@ void* interpose_by_address64(void* dst, void* address)
 			|| strncmp(insns[i].mnemonic, "loop", sizeof("loop") - 1) == 0)
 		{
 			fprintf(stderr, "Error: PC dependent instruction at 0x%p: %s %s\n",
-					insns[i].address, insns[i].mnemonic, insns[i].operands);
+					(void*) insns[i].address, insns[i].mnemonic, insns[i].operands);
 
 			munmap(trampoline, page_size);
 			return NULL;

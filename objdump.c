@@ -3,6 +3,7 @@
 #include "objdump.h"
 #include "util.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <limits.h>
 
@@ -45,7 +46,7 @@ int find_image_address(int process, const char* image_name, char image_path[PATH
 		char permissions[PATH_MAX];
 		int scanned;
 
-		if((scanned = sscanf(buf, "%llx-%*llx %s %*llx %*s %*d %s", &start, permissions, image_path)) != 3)
+		if((scanned = sscanf(buf, "%llx-%*x %s %*x %*s %*d %s", &start, permissions, image_path)) != 3)
 			continue;
 
 		// we're looking for an entry that is both readable and executable
@@ -74,14 +75,14 @@ int find_image_address(int process, const char* image_name, char image_path[PATH
 		unsigned long long offset;
 		unsigned long long vaddr;
 
-		if(sscanf(symbolTableLine, " LOAD off 0x%llx vaddr 0x%llx paddr 0x%*llx align %*s", &offset, &vaddr) != 2)
+		if(sscanf(symbolTableLine, " LOAD off 0x%llx vaddr 0x%llx paddr 0x%*x align %*s", &offset, &vaddr) != 2)
 			continue;
 
 		// die if this was the last line
 		if((symbolTableLine = strtok(NULL, "\n")) == NULL)
 			break;
 
-		if(sscanf(symbolTableLine, " filesz 0x%*llx memsz 0x%*llx flags %s", buf) != 1)
+		if(sscanf(symbolTableLine, " filesz 0x%*x memsz 0x%*x flags %s", buf) != 1)
 			continue;
 
 		// we're looking for a LOAD segment that is both readable and executable like the one in the map
@@ -147,7 +148,7 @@ int find_image_for_address(int process, void* address, char image_path[PATH_MAX]
 		unsigned long long end;
 		int scanned;
 
-		if((scanned = sscanf(buf, "%llx-%llx %*s %*llx %*s %*d %s", &start, &end, image_path)) != 3)
+		if((scanned = sscanf(buf, "%llx-%llx %*s %*x %*s %*d %s", &start, &end, image_path)) != 3)
 			continue;
 
 		// skip if our address is not within range
@@ -174,14 +175,14 @@ int find_image_for_address(int process, void* address, char image_path[PATH_MAX]
 		unsigned long long offset;
 		unsigned long long vaddr;
 
-		if(sscanf(symbolTableLine, " LOAD off 0x%llx vaddr 0x%llx paddr 0x%*llx align %*s", &offset, &vaddr) != 2)
+		if(sscanf(symbolTableLine, " LOAD off 0x%llx vaddr 0x%llx paddr 0x%*x align %*s", &offset, &vaddr) != 2)
 			continue;
 
 		// die if this was the last line
 		if((symbolTableLine = strtok(NULL, "\n")) == NULL)
 			break;
 
-		if(sscanf(symbolTableLine, " filesz 0x%*llx memsz 0x%*llx flags %s", buf) != 1)
+		if(sscanf(symbolTableLine, " filesz 0x%*x memsz 0x%*x flags %s", buf) != 1)
 			continue;
 
 		// we're looking for a LOAD segment that is both readable and executable like the one in the map
@@ -295,10 +296,10 @@ void* find_function(int process, const char* image_name, const char* func, char*
 		unsigned long long start;
 
 		// variety of line with version information
-		if(sscanf(symbolTableLine, "%llx %*s %*s %*s %*llx %*s %s", &start, buf) != 2)
+		if(sscanf(symbolTableLine, "%llx %*s %*s %*s %*x %*s %s", &start, buf) != 2)
 		{
 			// sometimes there's no version information
-			if(sscanf(symbolTableLine, "%llx %*s %*s %*s %*llx %s", &start, buf) != 2)
+			if(sscanf(symbolTableLine, "%llx %*s %*s %*s %*x %s", &start, buf) != 2)
 				continue;
 		}
 

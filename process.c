@@ -16,7 +16,7 @@
 #include <sys/wait.h>
 #include <sys/mman.h>
 #include <sys/ptrace.h>
-#include <linux/user.h>
+#include <sys/user.h>
 #define __RTLD_DLOPEN 0x80000000
 
 /**

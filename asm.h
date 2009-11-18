@@ -2,7 +2,7 @@
 #define ASM_H
 
 typedef struct Instruction {
-	void* address;
+	intptr_t address;
 	int length;
 	char opcodes[32];
 	char mnemonic[16];

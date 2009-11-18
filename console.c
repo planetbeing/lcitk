@@ -16,6 +16,8 @@
 #include "symtab.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
+#include <inttypes.h>
 #include <string.h>
 #include <signal.h>
 #include <setjmp.h>
@@ -210,7 +212,7 @@ void process_command(int process, void* target_mmap, void* target_munmap, char* 
 
 					args[numargs] = strings[numstrings];
 
-					printf("(%s) 0x%llx\n", token, strings[numstrings]);
+					printf("(%s) 0x%" PRIxPTR "\n", token, strings[numstrings]);
 					++numstrings;
 				}
 			}
@@ -262,7 +264,7 @@ void process_command(int process, void* target_mmap, void* target_munmap, char* 
 				if(i != 0)
 					printf(", ");
 
-				printf("%llx", args[i]);
+				printf("%" PRIxPTR, args[i]);
 			}
 
 			printf(")...\n");
@@ -270,7 +272,8 @@ void process_command(int process, void* target_mmap, void* target_munmap, char* 
 			uint64_t ret = call_function_in_target_with_args64(process, function, numargs, args);
 			free(image_path);
 
-			printf("Return value (hex/dec/oct): 0x%llx / %lld / 0%llo\n", ret, ret, ret);
+			printf("Return value (hex/dec/oct): 0x%" PRIx64 " / %" PRId64 " / 0%" PRIo64 "\n",
+				ret, ret, ret);
 		}
 		else
 		{
@@ -310,7 +313,7 @@ void process_command(int process, void* target_mmap, void* target_munmap, char* 
 
 	for(i = 0; i < numstrings; i++)
 	{
-		printf("Freeing string at 0x%llx.\n", strings[i]);
+		printf("Freeing string at 0x%" PRIxPTR ".\n", strings[i]);
 		call_function_in_target64(process, target_munmap, 2, strings[i], stringlens[i]);
 	}
 

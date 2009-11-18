@@ -40,7 +40,8 @@ int main(int argc, const char* const argv[])
 
 	if(strncmp(argv[2], "-i", 2) == 0)
 	{
-		printf("Injection returned handle: %x\n", inject_so(pid, argv[3]));
+		printf("Injection returned handle: %x\n",
+			(unsigned int)((intptr_t)inject_so(pid, argv[3])));
 	}
 	else if(strncmp(argv[2], "-u", 2) == 0)
 	{

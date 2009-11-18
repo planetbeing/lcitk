@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <inttypes.h>
 #include <string.h>
 #include <limits.h>
 #include <sys/stat.h>
@@ -352,13 +353,13 @@ static void cache_symbols(SymbolTable* table, const char* image)
 	char* symbolTableLine = strtok(symbolTable, "\n");	// TODO: Not thread-safe
 	do
 	{
-		unsigned long long start;
+		uint64_t start;
 
 		// variety of line with version information
-		if(sscanf(symbolTableLine, "%llx %*s %*s %*s %*llx %*s %s", &start, buf) != 2)
+		if(sscanf(symbolTableLine, "%" PRIx64 " %*s %*s %*s %*x %*s %s", &start, buf) != 2)
 		{
 			// sometimes there's no version information
-			if(sscanf(symbolTableLine, "%llx %*s %*s %*s %*llx %s", &start, buf) != 2)
+			if(sscanf(symbolTableLine, "%" PRIx64 " %*s %*s %*s %*x %s", &start, buf) != 2)
 				continue;
 		}
 
