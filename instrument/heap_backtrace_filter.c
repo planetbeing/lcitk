@@ -48,8 +48,9 @@ int main(int argc, const char* const argv[])
 		fwrite(line, 1, backtrace_start - line, stdout);
 
 		int first = 1;
-		char* token = strtok(backtrace_start, ",");
-		while(token != NULL)
+		char* token;
+		char* next = backtrace_start;
+		while(token = strsep(&next, ","))
 		{
 			if(first == 0)
 			{
@@ -66,7 +67,6 @@ int main(int argc, const char* const argv[])
 				fprintf(stdout, "%p", address);
 
 			first = 0;
-			token = strtok(NULL, ",");
 		}
 
 		fprintf(stdout, "\n");
