@@ -77,10 +77,12 @@ int find_image_load_information(int process, uintptr_t elf_start, uintptr_t* ima
 			if(entry)
 				*entry = elf.e_entry + img_start;
 
+			free(phdr_buffer);
 			return 1;
 		}
 	}
 
+	free(phdr_buffer);
 	return 0;
 }
 
