@@ -212,6 +212,10 @@ uintptr_t call_function_in_target_with_args(int process, void* function, int num
 	
 	char backup[sizeof(breakpoint)];	// instruction we overwrite with the breakpoint.
 
+	// we'll use the exe entry point  as the dummy return pointer for our function
+	// so we can detect when it's finished
+	uintptr_t breakpoint_addr = find_process_entry_point(process);
+
 	if(ptrace(PTRACE_ATTACH, process, NULL, NULL) == -1)
 		return -1;
 
@@ -223,10 +227,10 @@ uintptr_t call_function_in_target_with_args(int process, void* function, int num
 		goto detach;
 
 	// Back up the instructions at this location that we will overwrite with the breakpoint.
-	process_read(process, backup, sizeof(backup), IP(regs));
+	process_read(process, backup, sizeof(backup), breakpoint_addr);
 
 	// Set our breakpoint
-	process_write(process, breakpoint, sizeof(breakpoint), IP(regs));
+	process_write(process, breakpoint, sizeof(breakpoint), breakpoint_addr);
 
 	// Now we need to start setting up our call. We need to create a stack and register
 	// situation that will reflect the state just after a call instruction, with the
@@ -301,7 +305,7 @@ uintptr_t call_function_in_target_with_args(int process, void* function, int num
 
 	// push return address onto the stack
 	SP(call_regs) -= sizeof(cur_arg);
-	process_write(process, &IP(regs), sizeof(IP(regs)), SP(call_regs));
+	process_write(process, &breakpoint_addr, sizeof(breakpoint_addr), SP(call_regs));
 
 	IP(call_regs) = (uintptr_t) function;
 	if(SYSCALL_PARAM(regs) >= 0)
@@ -318,7 +322,7 @@ uintptr_t call_function_in_target_with_args(int process, void* function, int num
 	ptrace(PTRACE_CONT, process, NULL, NULL);
 
 	// Wait for process to reach our set breakpoint, which indicates our function call has returned.
-	do 
+	while(1)
 	{
 		waitpid(process, &status, 0);
 
@@ -327,7 +331,7 @@ uintptr_t call_function_in_target_with_args(int process, void* function, int num
 			// We're stopped, but is it at our breakpoint?
 			if(WSTOPSIG(status) == SIGTRAP)
 			{
-				// Yes, continue.
+				// yes, continue with restoring original state
 				break;
 			}
 			else
@@ -339,8 +343,9 @@ uintptr_t call_function_in_target_with_args(int process, void* function, int num
 					// Probably not too much memory got corrupted.
 					
 					fprintf(stderr,
-						"Error: signal %d in attempted injection function call!\n", WSTOPSIG(status));
-
+						"Error: signal %d in attempted injection function call!\n",
+						WSTOPSIG(status));
+					kill(process, WSTOPSIG(status));		// resend the signal
 					ptrace(PTRACE_DETACH, process, NULL, NULL);
 					exit(0);
 					break;
@@ -350,14 +355,14 @@ uintptr_t call_function_in_target_with_args(int process, void* function, int num
 				ptrace(PTRACE_CONT, process, NULL, NULL);
 			}
 		}
-	} while(1);
+	}
 
 	// Save return value
 	ptrace(PTRACE_GETREGS, process, NULL, &call_regs);
 	ret = RETURN_REG(call_regs);
 
 	// Restore the old instructions here
-	process_write(process, backup, sizeof(backup), IP(regs));
+	process_write(process, backup, sizeof(backup), breakpoint_addr);
 
 	// Restore backed up registers
 	ptrace(PTRACE_SETREGS, process, NULL, &regs);
