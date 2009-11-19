@@ -26,7 +26,7 @@
  *  	A true value if the image was found, false for failure.
  *
  */
-int find_image_address(int process, const char* image_name, char image_path[PATH_MAX], intptr_t* image_start)
+int find_image_address(int process, const char* image_name, char image_path[PATH_MAX], uintptr_t* image_start)
 {
 	char buf[PATH_MAX];
 
@@ -126,11 +126,11 @@ int find_image_address(int process, const char* image_name, char image_path[PATH
  *  	A true value if the image was found, false for failure.
  *
  */
-int find_image_for_address(int process, void* address, char image_path[PATH_MAX], intptr_t* image_start,
-		intptr_t* range_start, intptr_t* range_end)
+int find_image_for_address(int process, void* address, char image_path[PATH_MAX], uintptr_t* image_start,
+		uintptr_t* range_start, uintptr_t* range_end)
 {
 	char buf[PATH_MAX];
-	intptr_t iAddress = (intptr_t) address;
+	uintptr_t iAddress = (uintptr_t) address;
 
 	*image_start = 0;
 
@@ -222,8 +222,8 @@ void* find_relocation(int process, const char* image_name, const char* func)
 {
 	char buf[PATH_MAX];
 	char image[PATH_MAX];
-	intptr_t image_start = 0;
-	intptr_t func_start = 0;
+	uintptr_t image_start = 0;
+	uintptr_t func_start = 0;
 
 	if(!find_image_address(process, image_name, image, &image_start))
 		return NULL;
@@ -278,8 +278,8 @@ void* find_function(int process, const char* image_name, const char* func, char*
 {
 	char buf[PATH_MAX];
 	char image[PATH_MAX];
-	intptr_t image_start = 0;
-	intptr_t func_start = 0;
+	uintptr_t image_start = 0;
+	uintptr_t func_start = 0;
 
 	if(!find_image_address(process, image_name, image, &image_start))
 		return NULL;

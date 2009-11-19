@@ -1,8 +1,10 @@
 #ifndef ASM_H
 #define ASM_H
 
+#include <stdint.h>
+
 typedef struct Instruction {
-	intptr_t address;
+	uintptr_t address;
 	int length;
 	char opcodes[32];
 	char mnemonic[16];

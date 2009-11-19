@@ -228,9 +228,9 @@ static void free_tree(AANode* T)
 typedef struct Mapping
 {
 	AANode node;
-	intptr_t start;			/// Start of the memory region
-	intptr_t end;			/// End of the memory region
-	intptr_t image_start;		/// Address in memory other addresses in the associated binary object are based off
+	uintptr_t start;			/// Start of the memory region
+	uintptr_t end;			/// End of the memory region
+	uintptr_t image_start;		/// Address in memory other addresses in the associated binary object are based off
 	char image_path[];		/// Full path of the binary object associated with this memory region.
 } Mapping;
 
@@ -241,7 +241,7 @@ typedef struct Mapping
 typedef struct Symbol
 {
 	AANode node;
-	intptr_t address;		/// Offset from the base address of the binary object the symbol is located at.
+	uintptr_t address;		/// Offset from the base address of the binary object the symbol is located at.
 	char name[];			/// Name of the symbol
 } Symbol;
 
@@ -307,15 +307,15 @@ static Mapping* find_mapping_for_address(SymtabCache* cache, int process, void* 
 	}
 
 	// match address to mapping
-	intptr_t iAddress = (intptr_t) address;
+	uintptr_t iAddress = (uintptr_t) address;
 	Mapping* mapping = (Mapping*) search((AANode*)table->table, iAddress);
 	if(mapping && mapping->start <= iAddress && iAddress <= mapping->end)
 		return mapping;
 
 	char image_path[PATH_MAX];
-	intptr_t image_start;
-	intptr_t start;
-	intptr_t end;
+	uintptr_t image_start;
+	uintptr_t start;
+	uintptr_t end;
 
 	if(!find_image_for_address(process, address, image_path, &image_start, &start, &end))
 		return NULL;
@@ -439,7 +439,7 @@ const char* find_symbol_for_address(SymtabCache* cache, int process, void* addre
 	if(!symbols)
 		return NULL;
 
-	intptr_t iAddress = ((intptr_t) address) - mapping->image_start;
+	uintptr_t iAddress = ((uintptr_t) address) - mapping->image_start;
 	Symbol* symbol = (Symbol*) search((AANode*) symbols, iAddress);
 	if(symbol)
 	{

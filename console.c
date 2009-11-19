@@ -121,7 +121,7 @@ int main(int argc, const char* const argv[])
 			}
 			else if(strncmp(expanded, "#whatis ", sizeof("#whatis ") - 1) == 0)
 			{
-				void* address = (void*) strtoll(expanded + sizeof("#whatis ") - 1, NULL, 0);
+				void* address = (void*) (uintptr_t) strtoll(expanded + sizeof("#whatis ") - 1, NULL, 0);
 				void* symbol_address;
 				const char* name = find_symbol_for_address(cache, process, address, &symbol_address);
 				if(name)
@@ -155,12 +155,12 @@ int main(int argc, const char* const argv[])
 // Perform argument parsing and possibly execute a command in the inferior
 void process_command(int process, void* target_mmap, void* target_munmap, char* expanded)
 {
-	intptr_t* strings = NULL;
+	uintptr_t* strings = NULL;
 	size_t* stringlens = NULL;
 	int numstrings = 0;
 
 	char* func_name = NULL;
-	uint64_t* args = NULL;
+	uintptr_t* args = NULL;
 	int numargs = 0;
 	int bad_args = 0;
 	char* tokenizer_state = expanded;
@@ -173,7 +173,7 @@ void process_command(int process, void* target_mmap, void* target_munmap, char* 
 		}
 		else
 		{
-			args = (uint64_t*) realloc(args, sizeof(uint64_t) * (numargs + 1));	
+			args = (uintptr_t*) realloc(args, sizeof(uintptr_t) * (numargs + 1));	
 
 			if(token[0] == '\"')
 			{
@@ -189,14 +189,14 @@ void process_command(int process, void* target_mmap, void* target_munmap, char* 
 					printf("Allocating string \"%s\" ... ", token);
 
 					// Allocate it within target process and copy the string
-					strings = (intptr_t*) realloc(strings,
-							sizeof(intptr_t) * (numstrings + 1));	
+					strings = (uintptr_t*) realloc(strings,
+							sizeof(uintptr_t) * (numstrings + 1));	
 
-					stringlens = (intptr_t*) realloc(stringlens,
-							sizeof(intptr_t) * (numstrings + 1));	
+					stringlens = (uintptr_t*) realloc(stringlens,
+							sizeof(uintptr_t) * (numstrings + 1));	
 
 					strings[numstrings] =
-						call_function_in_target64(process,
+						call_function_in_target(process,
 								target_mmap,
 								6,
 								0, tokenLength, PROT_READ | PROT_WRITE,
@@ -230,7 +230,7 @@ void process_command(int process, void* target_mmap, void* target_munmap, char* 
 					if(sym)
 					{
 						printf("Found symbol %s at %p\n", token, sym);
-						args[numargs] = (intptr_t) sym;
+						args[numargs] = (uintptr_t) sym;
 					}
 					else
 					{
@@ -256,7 +256,7 @@ void process_command(int process, void* target_mmap, void* target_munmap, char* 
 
 		if(function)
 		{
-			printf("Calling '%s' at 0x%p (%s) with %d arguments (",
+			printf("Calling '%s' at %p (%s) with %d arguments (",
 					func_name, function, image_path, numargs);
 
 			for(i = 0; i < numargs; i++)
@@ -269,10 +269,10 @@ void process_command(int process, void* target_mmap, void* target_munmap, char* 
 
 			printf(")...\n");
 
-			uint64_t ret = call_function_in_target_with_args64(process, function, numargs, args);
+			uintptr_t ret = call_function_in_target_with_args(process, function, numargs, args);
 			free(image_path);
 
-			printf("Return value (hex/dec/oct): 0x%" PRIx64 " / %" PRId64 " / 0%" PRIo64 "\n",
+			printf("Return value (hex/dec/oct): 0x%" PRIxPTR " / %" PRIuPTR " / 0%" PRIoPTR "\n",
 				ret, ret, ret);
 		}
 		else
@@ -314,7 +314,7 @@ void process_command(int process, void* target_mmap, void* target_munmap, char* 
 	for(i = 0; i < numstrings; i++)
 	{
 		printf("Freeing string at 0x%" PRIxPTR ".\n", strings[i]);
-		call_function_in_target64(process, target_munmap, 2, strings[i], stringlens[i]);
+		call_function_in_target(process, target_munmap, 2, strings[i], stringlens[i]);
 	}
 
 	if(strings)

@@ -57,12 +57,12 @@ int main(int argc, const char* const argv[])
 				fprintf(stdout, ", ");
 			}
 
-			void* address = (void*) strtoll(token, NULL, 0);
+			void* address = (void*) (uintptr_t) strtoll(token, NULL, 0);
 			void* symbol_address;
 			const char* name = find_symbol_for_address(cache, process, address, &symbol_address);
 
 			if(name)
-				fprintf(stdout, "%s+0x%x", name, (int)((intptr_t)address - (intptr_t)symbol_address));
+				fprintf(stdout, "%s+0x%x", name, (int)((uintptr_t)address - (uintptr_t)symbol_address));
 			else
 				fprintf(stdout, "%p", address);
 

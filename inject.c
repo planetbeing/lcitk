@@ -41,12 +41,12 @@ int main(int argc, const char* const argv[])
 	if(strncmp(argv[2], "-i", 2) == 0)
 	{
 		printf("Injection returned handle: %x\n",
-			(unsigned int)((intptr_t)inject_so(pid, argv[3])));
+			(unsigned int)((uintptr_t)inject_so(pid, argv[3])));
 	}
 	else if(strncmp(argv[2], "-u", 2) == 0)
 	{
 		char* endptr;
-		void* handle = (void*) strtoll(argv[3], &endptr, 16);
+		void* handle = (void*) (uintptr_t) strtoll(argv[3], &endptr, 16);
 		if(*endptr == '\0')
 		{
 			// "handle" argument, use directly.
@@ -66,7 +66,7 @@ int main(int argc, const char* const argv[])
 			}
 
 			char image_out_path[PATH_MAX];
-			intptr_t image_start;
+			uintptr_t image_start;
 			if(find_image_address(pid, path, image_out_path, &image_start))
 			{
 				void* handle = inject_so(pid, path);

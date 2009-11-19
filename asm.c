@@ -129,8 +129,8 @@ int get_instructions(const char* file, void* address, int bytes, Instruction* in
 	char start_addr[64];
 	char stop_addr[64];
 
-	snprintf(start_addr, sizeof(start_addr), "--start-address=0x%" PRIxPTR, (intptr_t) address);
-	snprintf(stop_addr, sizeof(stop_addr), "--stop-address=0x%" PRIxPTR, (intptr_t) address + bytes);
+	snprintf(start_addr, sizeof(start_addr), "--start-address=0x%" PRIxPTR, (uintptr_t) address);
+	snprintf(stop_addr, sizeof(stop_addr), "--stop-address=0x%" PRIxPTR, (uintptr_t) address + bytes);
 
 	int count = 0;
 	char* disasm = get_command_output("/usr/bin/objdump", "/usr/bin/objdump", "-D", file, start_addr, stop_addr, NULL);
@@ -239,7 +239,7 @@ void* interpose_by_address64(void* dst, void* address)
 		
 	}
 
-	int copied_insns_size = (((uint64_t) trampoline_cursor) - ((uint64_t) trampoline));
+	int copied_insns_size = (((uintptr_t) trampoline_cursor) - ((uintptr_t) trampoline));
 
 	if(copied_insns_size < 14)
 	{
@@ -250,7 +250,7 @@ void* interpose_by_address64(void* dst, void* address)
 	}
 
 	// Set the jump address to the original address + length of instructions already copied from original address
-	*((uint64_t*)(((intptr_t) trampoline_cursor) + 6)) = ((uint64_t) address) + copied_insns_size;
+	*((uintptr_t*)(((uintptr_t) trampoline_cursor) + 6)) = ((uintptr_t) address) + copied_insns_size;
 
 	const char jmp[] = {0xff, 0x25, 0x00, 0x00, 0x00, 0x00};
 
@@ -258,7 +258,7 @@ void* interpose_by_address64(void* dst, void* address)
 	memcpy(trampoline_cursor, jmp, sizeof(jmp));
 
 	// figure out what page the code we need to overwrite begins on
-	void* target_page = (void*)(((intptr_t) address) & ~(page_size - 1));
+	void* target_page = (void*)(((uintptr_t) address) & ~(page_size - 1));
 
 	// unprotect two pages just to be safe (in case we straddle a page boundary)
 	mprotect(target_page, page_size * 2, PROT_READ | PROT_WRITE | PROT_EXEC);
@@ -267,7 +267,7 @@ void* interpose_by_address64(void* dst, void* address)
 	memcpy(address, jmp, sizeof(jmp));
 
 	// write destination address
-	*((uint64_t*)(((intptr_t) address) + 6)) = (uint64_t) dst;
+	*((uintptr_t*)(((uintptr_t) address) + 6)) = (uintptr_t) dst;
 
 	// reprotect memory
 	mprotect(target_page, page_size * 2, PROT_READ | PROT_EXEC);
@@ -315,10 +315,10 @@ void uninterpose64(void* trampoline)
 	while(memcmp(after_addr - sizeof(jmp), jmp, sizeof(jmp)) != 0)
 		++after_addr;
 
-	int copied_insns_size = ((intptr_t)after_addr) - sizeof(jmp) - ((intptr_t)trampoline);
-	void* orig_addr = (void*)(*((uint64_t*) after_addr) - copied_insns_size);
+	int copied_insns_size = ((uintptr_t)after_addr) - sizeof(jmp) - ((uintptr_t)trampoline);
+	void* orig_addr = (void*)(*((uintptr_t*) after_addr) - copied_insns_size);
 
-	void* target_page = (void*)(((intptr_t) orig_addr) & ~(page_size - 1));
+	void* target_page = (void*)(((uintptr_t) orig_addr) & ~(page_size - 1));
 
 	// unprotect two pages just to be safe (in case we straddle a page boundary)
 	mprotect(target_page, page_size * 2, PROT_READ | PROT_WRITE | PROT_EXEC);
