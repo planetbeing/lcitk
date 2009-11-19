@@ -215,7 +215,7 @@ void* interpose_by_address64(void* dst, void* address)
 	void* trampoline = mmap(NULL, page_size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANONYMOUS | MAP_PRIVATE, 0, 0);
 
 	Instruction insns[32];
-	int num_insns = get_instructions_from_memory(address, 14, insns);
+	int num_insns = get_instructions_from_memory(address, 6 + sizeof(void*), insns);
 
 	int i;
 	char* trampoline_cursor = (char*) trampoline;
@@ -241,7 +241,7 @@ void* interpose_by_address64(void* dst, void* address)
 
 	int copied_insns_size = (((uintptr_t) trampoline_cursor) - ((uintptr_t) trampoline));
 
-	if(copied_insns_size < 14)
+	if(copied_insns_size < (6 + sizeof(void*)))
 	{
 		// Not enough room to put our jump.
 		fprintf(stderr, "Error: Not enough room to add jump, only room for %d bytes.\n", copied_insns_size);
@@ -311,7 +311,7 @@ void uninterpose64(void* trampoline)
 	const char jmp[] = {0xff, 0x25, 0x00, 0x00, 0x00, 0x00};
 	int page_size = sysconf(_SC_PAGE_SIZE);
 
-	char* after_addr = ((char*)trampoline) + 14 + sizeof(jmp);
+	char* after_addr = ((char*)trampoline) + 6 + sizeof(void*) + sizeof(jmp);
 	while(memcmp(after_addr - sizeof(jmp), jmp, sizeof(jmp)) != 0)
 		++after_addr;
 
