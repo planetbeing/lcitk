@@ -321,7 +321,6 @@ uintptr_t call_function_in_target_with_args(int process, void* function, int num
 	do 
 	{
 		waitpid(process, &status, 0);
-		printf("status: %d\n", WSTOPSIG(status));
 
 		if(WIFSTOPPED(status))
 		{
